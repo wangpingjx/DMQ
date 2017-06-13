@@ -1,5 +1,5 @@
 <?php
-require_once DMQ_ROOT_DIR . 'lib/Client.php';
+require_once DMQ_ROOT_DIR . 'lib/client.php';
 
 class Poller {
     public function __construct() {
@@ -26,7 +26,7 @@ class Poller {
 
     # 眠时间最好能将所有进程错开: sidekiq 进程数量 x 平均拉取时间 average_scheduled_poll_interval
     public function wait() {
-        $time = rand(0, 10) / 10;
+        $time = 1 + rand(0, 10) / 10;
         sleep($time);
     }
 

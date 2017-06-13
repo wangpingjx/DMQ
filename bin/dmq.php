@@ -25,10 +25,10 @@ if (version_compare(PHP_VERSION,'5.3.0','<')){
     exit("DMQ PHP >= 5.3.0 required \n");
 }
 
-require_once DMQ_ROOT_DIR . 'lib/Master.php';
+require_once DMQ_ROOT_DIR . 'lib/master.php';
 
 // pid file
-require_once DMQ_ROOT_DIR . 'lib/Config.php';
+require_once DMQ_ROOT_DIR . 'lib/config.php';
 DMQ\Lib\Config::instance();
 
 if (!($pid_file = DMQ\Lib\Config::get('dmq.pid_file'))) {

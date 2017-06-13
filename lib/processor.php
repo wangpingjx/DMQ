@@ -1,5 +1,5 @@
 <?php
-require_once DMQ_ROOT_DIR . 'lib/Client.php';
+require_once DMQ_ROOT_DIR . 'lib/client.php';
 
 class Processor {
     public function __construct() {
@@ -28,7 +28,7 @@ class Processor {
     public function fetch() {
         try {
             $item = $this->objClient->brpop();
-            # 测试用
+            # TODO 测试用
             sleep(1);
 
             return $item;
@@ -41,7 +41,7 @@ class Processor {
     # 执行任务
     public function process($item) {
         try {
-            echo $item."\n";
+            var_dump($item);
         } catch (Expception $e) {
             echo 'caught exception in function process :(';
         }

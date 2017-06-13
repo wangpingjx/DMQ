@@ -1,15 +1,15 @@
 <?php
-namespace DMQ\Lib;
+namespace DMQ;
 
 if(!defined('DMQ_ROOT_DIR')){
     define('DMQ_ROOT_DIR', realpath(__DIR__)."/");
 }
 
-require_once DMQ_ROOT_DIR . 'lib/Checker.php';
-require_once DMQ_ROOT_DIR . 'lib/Config.php';
-require_once DMQ_ROOT_DIR . 'lib/Log.php';
-require_once DMQ_ROOT_DIR . 'lib/RedisConn.php';
-require_once DMQ_ROOT_DIR . 'lib/Client.php';
+require_once DMQ_ROOT_DIR . 'lib/checker.php';
+require_once DMQ_ROOT_DIR . 'lib/config.php';
+require_once DMQ_ROOT_DIR . 'lib/log.php';
+require_once DMQ_ROOT_DIR . 'lib/redis_conn.php';
+require_once DMQ_ROOT_DIR . 'lib/client.php';
 
 class Master {
     /**
@@ -91,6 +91,12 @@ class Master {
     protected static $serviceStatus = self::STATUS_STARTING;
 
     /**
+     * 用来监听端口的Socket数组，用来fork worker使用
+     * @var array
+     */
+    protected static $listenedSocketsArray = array();
+
+    /**
      * 工作单元数组，用来fork worker使用
      * @var array
      */
@@ -134,6 +140,8 @@ class Master {
         self::savepid();
         // 安装信号
         self::installSignal();
+        // 创建监听socket
+        self::createListeningSockets();
         // 创建Worker进程
         self::createWorkers();
         // 输出启动信息
@@ -252,6 +260,26 @@ class Master {
      }
 
      /**
+      * 根据配置文件，创建监听套接字
+      * @return void
+      */
+     protected static function createListeningSockets() {
+         foreach (Lib\Config::getAllWOrkers() as $worker_name => $config) {
+             if (isset($config['listen'])) {
+                 $flags     = substr($config['listen'], 0, 3) == 'udp' ? STREAM_SERVER_BIND : STREAM_SERVER_BIND | STREAM_SERVER_LISTEN;
+                 $error_no  = 0;
+                 $error_msg = '';
+                 // 创建监听socket
+                 self::$listenedSocketsArray[$worker_name] = stream_socket_server$config['listen'], $error_no, $error_msg, $flags);
+                 if (!self::$listenedSocketsArray[$worker_name]) {
+                     Lib\Log::add("can not create socket {$config['listen']} info:{$error_no} {$err_msg} \tServer start fail");
+                     exit("\nCan not create socket {$config['listen']} {$error_msg}, Workerman start fail\n");
+                 }
+             }
+         }
+     }
+
+     /**
       * 创建 Workers 进程
       * @return void
       */
@@ -294,7 +322,14 @@ class Master {
         } elseif ($pid === 0){
             // 忽略信号
             self::ignoreSignal();
-            // 清空任务
+
+            // 关闭不用的监听socket TODO why?
+            foreach (self::$listenedSocketsArray as $tmp_worker_name  => $tmp_socket) {
+                if ($tmp_worker_name != $worker_name) {
+                    fclose($tmp_socket);
+                }
+            }
+
             // 尝试以指定的用户运行worker进程
             if ($worker_user = Config::get($worker_name.'.user')) {
                 self::setProcUser($worker_user);
@@ -319,6 +354,11 @@ class Master {
 
             // 创建实例
             $worker = new $class_name();
+
+            // 如果改worker有配置监听端口，则将监听端口的socket传递给子进程
+            if (isset(self::$listenedSocketsArray[$worker_name])) {
+                $worker->setListendSocket(self::$listenedSocketsArray[$worker_name]);
+            }
 
             // 使worker开始服务
             $worker->start();
