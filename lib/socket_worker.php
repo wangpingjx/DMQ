@@ -148,7 +148,7 @@ abstract class SocketWorker extends AbstractWorker {
      */
     public function __construct($worker_name = null) {
         // worker_name
-        $this->workerName = $worker_name ? $worker_name : get_class($this);
+        $this->workerName = $worker_name ? $worker_name : strtolower(get_class($this));
 
         // 是否开启长连接
         $this->isPersistentConnection = (bool)Config::get($this->workerName . '.persistent_connection');
