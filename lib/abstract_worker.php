@@ -6,7 +6,6 @@ require_once DMQ_ROOT_DIR . 'lib/events/select.php';;
  * 抽象Worker类
  * 必须实现start方法
 */
-
 abstract class AbstractWorker {
     /**
      * worker状态 运行中
@@ -253,8 +252,8 @@ abstract class AbstractWorker {
     protected function notice($str, $display = true)
     {
         $str = 'Worker['.get_class($this).']:'.$str;
-        Lib\Log::add($str);
-        if($display && Lib\Config::get('dmq.debug') == 1)
+        Log::add($str);
+        if($display && Config::get('dmq.debug') == 1)
         {
             echo $str."\n";
         }

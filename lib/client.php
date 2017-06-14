@@ -41,7 +41,6 @@ class Client {
     # 阻塞式拉取需要处理的任务
     public function brpop() {
         $this->objRedis->brpop(self::QUEUE_KEY, 1);
-        return json_encode(['url' => '/test.php','time' => time(), 'body' => 'test']);
     }
 }
 ?>

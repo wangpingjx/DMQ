@@ -10,8 +10,7 @@ require_once DMQ_ROOT_DIR . 'lib/events/interfaces.php';
  * @author walkor <workerman.net>
  */
 
- class Select implements BaseEvent
- {
+ class Select implements BaseEvent {
      /**
       * 记录所有事件处理函数及参数
       * @var array

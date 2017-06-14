@@ -1,5 +1,5 @@
 <?php
-namespace DMQ;
+namespace DMQ\Lib;
 
 if(!defined('DMQ_ROOT_DIR')){
     define('DMQ_ROOT_DIR', realpath(__DIR__)."/");
@@ -264,16 +264,16 @@ class Master {
       * @return void
       */
      protected static function createListeningSockets() {
-         foreach (Lib\Config::getAllWOrkers() as $worker_name => $config) {
+         foreach (\DMQ\Lib\Config::getAllWorkers() as $worker_name => $config) {
              if (isset($config['listen'])) {
                  $flags     = substr($config['listen'], 0, 3) == 'udp' ? STREAM_SERVER_BIND : STREAM_SERVER_BIND | STREAM_SERVER_LISTEN;
                  $error_no  = 0;
                  $error_msg = '';
                  // 创建监听socket
-                 self::$listenedSocketsArray[$worker_name] = stream_socket_server$config['listen'], $error_no, $error_msg, $flags);
+                 self::$listenedSocketsArray[$worker_name] = stream_socket_server($config['listen'], $error_no, $error_msg, $flags);
                  if (!self::$listenedSocketsArray[$worker_name]) {
-                     Lib\Log::add("can not create socket {$config['listen']} info:{$error_no} {$err_msg} \tServer start fail");
-                     exit("\nCan not create socket {$config['listen']} {$error_msg}, Workerman start fail\n");
+                     \DMQ\Lib\Log::add("can not create socket {$config['listen']} info:{$error_no} {$error_msg} Server start fail");
+                     exit("\nCan not create socket {$config['listen']} {$error_msg}, Server start fail\n");
                  }
              }
          }
@@ -351,7 +351,6 @@ class Master {
                 sleep(5);
             }
             require_once $worker_file;
-
             // 创建实例
             $worker = new $class_name();
 

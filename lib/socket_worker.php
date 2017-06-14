@@ -1,10 +1,13 @@
 <?php
 namespace DMQ\Lib;
 
+require_once DMQ_ROOT_DIR . 'lib/events/select.php';
+require_once DMQ_ROOT_DIR . 'lib/abstract_worker.php';
+
 /**
  *  SocketWorker 监听某个端口，对外提供网络服务的worker
  */
-class SockerWorker {
+abstract class SocketWorker extends AbstractWorker {
     /**
      * udp最大包长 linux:65507 mac:9216
      * @var integer
@@ -122,6 +125,21 @@ class SockerWorker {
     );
 
     /**
+     * 必须实现该方法，根据具体协议和当前收到的数据决定是否继续收包
+     * @param string $bin 收到的数据包(可能是二进制)
+     * @return int/false 返回0表示接收完毕 ; int>0表示还有int字节没有接收; false数据包出错（例如数据包不合法等）
+     */
+    abstract public function dealInput($bin);
+
+
+    /**
+     * 必须实现该方法，根据包中的数据处理逻辑
+     * @param string $bin 收到的数据包
+     * @return void
+     */
+    abstract public function dealProcess($bin);
+
+    /**
      * 构造函数
      * @param int $port
      * @param string $ip
@@ -135,9 +153,9 @@ class SockerWorker {
         // 是否开启长连接
         $this->isPersistentConnection = (bool)Config::get($this->workerName . '.persistent_connection');
         // 最大请数，超过这个数则安全重启，如果没有配置则使用PHP_INT_MAX
-        $this->maxRequests = (int)Lib\Config::get( $this->workerName . '.max_requests');
+        $this->maxRequests = (int)Config::get( $this->workerName . '.max_requests');
         // 预读数据长度，长连接需要设置此项
-        $preread_length = (int)Lib\Config::get( $this->workerName . '.preread_length');
+        $preread_length = (int)Config::get( $this->workerName . '.preread_length');
         if($preread_length > 0)
         {
             $this->prereadLength = $preread_length;
@@ -147,12 +165,12 @@ class SockerWorker {
             $this->prereadLength = 65535;
         }
         // 接收缓冲区大小限制
-        if(($max_recv_buffer_size = Lib\Config::get($this->workerName . '.max_recv_buffer_size')) && $max_recv_buffer_size > 0)
+        if(($max_recv_buffer_size = Config::get($this->workerName . '.max_recv_buffer_size')) && $max_recv_buffer_size > 0)
         {
             $this->maxRecvBufferSize = $max_recv_buffer_size;
         }
         // 发送缓冲区大小限制
-        if(($max_send_buffer_size = Lib\Config::get($this->workerName . '.max_send_buffer_size')) && $max_send_buffer_size > 0)
+        if(($max_send_buffer_size = Config::get($this->workerName . '.max_send_buffer_size')) && $max_send_buffer_size > 0)
         {
             $this->maxSendBufferSize = $max_send_buffer_size;
         }
@@ -185,12 +203,12 @@ class SockerWorker {
         if($this->protocol == 'udp')
         {
             // 添加读udp事件
-            $this->event->add($this->mainSocket,  Lib\Events\BaseEvent::EV_READ, array($this, 'recvUdp'));
+            $this->event->add($this->mainSocket,  Events\BaseEvent::EV_READ, array($this, 'recvUdp'));
         }
         else
         {
             // 添加accept事件
-            $ret = $this->event->add($this->mainSocket,  Lib\Events\BaseEvent::EV_READ, array($this, 'accept'));
+            $ret = $this->event->add($this->mainSocket,  Events\BaseEvent::EV_READ, array($this, 'accept'));
         }
 
         // 主体循环,整个子进程会阻塞在这个函数上
@@ -212,7 +230,7 @@ class SockerWorker {
         if($this->workerStatus != self::STATUS_SHUTDOWN)
         {
             // 停止接收连接
-            $this->event->del($this->mainSocket, Lib\Events\BaseEvent::EV_READ);
+            $this->event->del($this->mainSocket, Events\BaseEvent::EV_READ);
             fclose($this->mainSocket);
             $this->workerStatus = self::STATUS_SHUTDOWN;
         }
@@ -235,8 +253,8 @@ class SockerWorker {
         // 设置监听socket非阻塞
         stream_set_blocking($this->mainSocket, 0);
         // 获取协议
-        $mata_data = stream_get_meta_data($socker);
-        $this->protocol = substr($mata_datap['stream_type'], 0, 3);
+        $mata_data = stream_get_meta_data($socket);
+        $this->protocol = substr($mata_data['stream_type'], 0, 3);
     }
 
     /**
@@ -275,7 +293,7 @@ class SockerWorker {
 
         // 非阻塞
         stream_set_blocking($this->connections[$fd], 0);
-        $this->event->add($this->connections[$fd], Lib\Events\BaseEvent::EV_READ , array($this, 'dealInputBase'), $fd);
+        $this->event->add($this->connections[$fd], Events\BaseEvent::EV_READ , array($this, 'dealInputBase'), $fd);
         return $new_connection;
     }
 
@@ -425,8 +443,8 @@ class SockerWorker {
         // udp忽略
         if($this->protocol != 'udp')
         {
-            $this->event->del($this->connections[$fd], Lib\Events\BaseEvent::EV_READ);
-            $this->event->del($this->connections[$fd], Lib\Events\BaseEvent::EV_WRITE);
+            $this->event->del($this->connections[$fd], Events\BaseEvent::EV_READ);
+            $this->event->del($this->connections[$fd], Events\BaseEvent::EV_WRITE);
             fclose($this->connections[$fd]);
             unset($this->connections[$fd], $this->recvBuffers[$fd], $this->sendBuffers[$fd]);
         }
@@ -463,7 +481,7 @@ class SockerWorker {
      * @param null $null
      * @param int $signal
      */
-    public function signalHandler($signal, $null = null, $null = null)
+    public function signalHandler($signal, $null1 = null, $null2 = null)
     {
         switch($signal)
         {
