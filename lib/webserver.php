@@ -1,6 +1,7 @@
 <?php
 require_once DMQ_ROOT_DIR . 'lib/socket_worker.php';
 require_once DMQ_ROOT_DIR . 'lib/protocols/http/http.php';
+require_once DMQ_ROOT_DIR . 'lib/client.php';
 
 /**
  *
@@ -39,7 +40,17 @@ require_once DMQ_ROOT_DIR . 'lib/protocols/http/http.php';
       * 服务器名到文件路径的转换
       * @var array ['workerman.net'=>'/home', 'www.workerman.net'=>'home/www']
       */
-     protected static $serverRoot = array();
+     //  protected static $serverRoot = array();
+
+     /**
+      * 路由配置
+      * @var string
+      */
+     protected static $routes = [
+         ['POST',    '/',     'create'],
+         ['GET',     '/',     'show'],
+         ['DELETE',  '/',     'delete'],
+     ];
 
      /**
       * 默认访问日志目录
@@ -69,8 +80,6 @@ require_once DMQ_ROOT_DIR . 'lib/protocols/http/http.php';
          \DMQ\Lib\Protocols\Http\HttpCache::init();
          // 初始化mimeMap
          $this->initMimeTypeMap();
-         // 初始化ServerRoot
-         $this->initServerRoot();
          // 初始化访问路径
          $this->initAccessLog();
      }
@@ -106,15 +115,6 @@ require_once DMQ_ROOT_DIR . 'lib/protocols/http/http.php';
                  }
              }
          }
-     }
-
-     /**
-      * 初始化ServerRoot
-      * @return void
-      */
-     public  function initServerRoot()
-     {
-         self::$serverRoot = \DMQ\Lib\Config::get($this->workerName.'.root');
      }
 
      /**
@@ -160,143 +160,24 @@ require_once DMQ_ROOT_DIR . 'lib/protocols/http/http.php';
              \DMQ\Lib\Protocols\Http\header('HTTP/1.1 400 Bad Request');
              return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end('<h1>400 Bad Request</h1>'));
          }
-
          $path = $url_info['path'];
 
-         $path_info = pathinfo($path);
-         $extension = isset($path_info['extension']) ? $path_info['extension'] : '' ;
-         if($extension == '')
-         {
-             $path = ($len = strlen($path)) && $path[$len -1] == '/' ? $path.'index.php' : $path . '/index.php';
-             $extension = 'php';
+         # 哈哈，一个小型路由
+         $index = false;
+         foreach (self::$routes as $key => $value) {
+            if ($value[0] == $_SERVER['REQUEST_METHOD'] && $value[1] == $path) {
+                 $index = $key;
+                 break;
+             }
          }
-
-         // 命中缓存，直接返回
-         if(isset(self::$fileCache[$path]) )
-         {
-                 $file_content = self::$fileCache[$path];
-                 // 发送给客户端
-                 return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end($file_content));
-         }
-
-         $root_dir = isset(self::$serverRoot[$_SERVER['HTTP_HOST']]) ? self::$serverRoot[$_SERVER['HTTP_HOST']] : current(self::$serverRoot);
-
-         $file = "$root_dir/$path";
-
-         // 对应的php文件不存在则直接使用根目录的index.php
-         if($extension == 'php' && !is_file($file))
-         {
-             $file = "$root_dir/index.php";
-         }
-
-         // 请求的文件存在
-         if(is_file($file))
-         {
-             // 判断是否是站点目录里的文件
-             if((!($request_realpath = realpath($file)) || !($root_dir_realpath = realpath($root_dir))) || 0 !== strpos($request_realpath, $root_dir_realpath))
-             {
-                 \DMQ\Lib\Protocols\Http\header('HTTP/1.1 400 Bad Request');
-                 return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end('<h1>400 Bad Request</h1>'));
-             }
-
-             // 如果请求的是php文件
-             if($extension == 'php')
-             {
-                 ini_set('display_errors', 'off');
-                 // 缓冲输出
-                 ob_start();
-                 // 载入php文件
-                 try
-                 {
-                     // $_SERVER变量
-                     $_SERVER['SCRIPT_NAME'] = $path;
-                     $_SERVER['REMOTE_ADDR'] = $this->getRemoteIp();
-                     $_SERVER['REMOTE_PORT'] = $this->getRemotePort();
-                     $_SERVER['SERVER_ADDR'] = $this->getLocalIp();
-                     $_SERVER['DOCUMENT_ROOT'] = $root_dir;
-                     $_SERVER['SCRIPT_FILENAME'] = $file;
-                     include $file;
-                 }
-                 catch(\Exception $e)
-                 {
-                     // 如果不是exit
-                     if($e->getMessage() != 'jump_exit')
-                     {
-                         echo $e;
-                     }
-                 }
-                 $content = ob_get_clean();
-                 ini_set('display_errors', 'on');
-                 $buffer = \DMQ\Lib\Protocols\Http\http_end($content);
-                 $this->sendToClient($buffer);
-                 // 执行php每执行一次就退出(原因是有的业务使用了require_once类似的语句，不能重复加载业务逻辑)
-                 //return $this->stop();
-                 return ;
-             }
-
-             // 请求的是静态资源文件
-             if(isset(self::$mimeTypeMap[$extension]))
-             {
-                 \DMQ\Lib\Protocols\Http\header('Content-Type: '. self::$mimeTypeMap[$extension]);
-             }
-             else
-             {
-                 \DMQ\Lib\Protocols\Http\header('Content-Type: '. self::$defaultMimeType);
-             }
-
-             // 获取文件信息
-             $info = stat($file);
-
-             $modified_time = $info ? date('D, d M Y H:i:s', $info['mtime']) . ' GMT' : '';
-
-             // 如果有$_SERVER['HTTP_IF_MODIFIED_SINCE']
-             if(!empty($_SERVER['HTTP_IF_MODIFIED_SINCE']) && $info)
-             {
-                 // 文件没有更改则直接304
-                 if($modified_time === $_SERVER['HTTP_IF_MODIFIED_SINCE'])
-                 {
-                     // 304
-                     \DMQ\Lib\Protocols\Http\header('HTTP/1.1 304 Not Modified');
-                     // 发送给客户端
-                     return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end(''));
-                 }
-             }
-
-             if(!isset(self::$fileCache[$file]) )
-             {
-                 $file_content = file_get_contents($file);
-                 // 缓存文件
-                 if($info['size'] < self::MAX_CACHE_FILE_SIZE && $file_content)
-                 {
-                     self::$fileCache[$file] = $file_content;
-                     // 缓存满了删除一个文件
-                     if(count(self::$fileCache) > self::MAX_CACHE_FILE_COUNT)
-                     {
-                         // 删除第一个缓存的文件
-                         reset(self::$fileCache);
-                         unset(self::$fileCache[key(self::$fileCache)]);
-                     }
-                 }
-             }
-             else
-             {
-                 $file_content = self::$fileCache[$file];
-             }
-
-             if($modified_time)
-             {
-                 \DMQ\Lib\Protocols\Http\header("Last-Modified: $modified_time");
-             }
-
-             // 发送给客户端
-            return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end($file_content));
-         }
-         else
-         {
-             // 404
+         if (false === $index) {
              \DMQ\Lib\Protocols\Http\header("HTTP/1.1 404 Not Found");
-             return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end('<html><head><title>页面不存在</title></head><body><center><h3>页面不存在</h3></center></body></html>'));
+             return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end(json_encode(['code' => 404, 'result' => ''])));
          }
+         $action = self::$routes[$index][2];
+         $result = $this->$action($_REQUEST);
+         \DMQ\Lib\Protocols\Http\header('HTTP/1.1 200 OK');
+         return $this->sendToClient(\DMQ\Lib\Protocols\Http\http_end(json_encode(['code' => 200, 'result' => $result])));
      }
 
      /**
@@ -314,6 +195,31 @@ require_once DMQ_ROOT_DIR . 'lib/protocols/http/http.php';
         else
         {
             file_put_contents(self::$defaultAccessLog, $log_data, FILE_APPEND);
+        }
     }
-}
+
+    // 对队列的操作
+    public function create($request) {
+        $name = $request['name'];
+        $data = json_decode($request['data'], true);
+        if (empty($name) || empty($data) || empty($data['at'])) {
+            return false;
+        }
+        $objClient = new DMQ\Lib\Client();
+        $objClient->zadd($request['name'], $data);
+        return true;
+    }
+
+    public function show($request) {
+        $name = $request['name'];
+        $objClient = new DMQ\Lib\Client();
+        if (empty($name)) {
+            return false;
+        }
+        return $objClient->zrange($request['name']);
+    }
+
+    public function delete($request) {
+        return $request;
+    }
 }

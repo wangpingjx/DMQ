@@ -16,6 +16,14 @@ class Client {
     public function zadd($queuename, $job) {
         $this->objRedis->zadd($queuename, $job['at'], json_encode($job));
     }
+    public function zrange($queuename) {
+        $ret = $this->objRedis->zrange($queuename, 0, -1);
+        $result = [];
+        foreach ((array)$ret as $job) {
+            $result[] = json_decode($job, true);
+        }
+        return $result;
+    }
     public function enqueue_to_schedule($job) {
         $this->zadd(self::SCHEDULE_KEY, $job);
     }

@@ -2,31 +2,25 @@
 namespace DMQ\Lib\Protocols\Http;
 
 /**
- * 判断http协议的数据包是否完整
+ * 判断 http 协议的数据包是否完整
  * @param string $http_string
  * @return integer 0表示完整 否则还需要integer长度的数据
  */
-function http_input($http_string)
-{
+function http_input($http_string) {
+
     // 查找\r\n\r\n
     $data_length = strlen($http_string);
-
-    if(!strpos($http_string, "\r\n\r\n"))
-    {
+    if(!strpos($http_string, "\r\n\r\n")){
         return 1;
     }
 
-    // POST请求还要读包体
-    if(strpos($http_string, "POST"))
-    {
+    // POST 请求还要读包体
+    if(false !== strpos($http_string, "POST")) {
         // 找Content-Length
         $match = array();
-        if(preg_match("/\r\nContent-Length: ?(\d*)\r\n/", $http_string, $match))
-        {
+        if(preg_match("/\r\nContent-Length: ?(\d*)\r\n/", $http_string, $match)) {
             $content_length = $match[1];
-        }
-        else
-        {
+        } else{
             return 0;
         }
         // 看包体长度是否符合
@@ -34,7 +28,6 @@ function http_input($http_string)
         $remain_length = $content_length - strlen($tmp[1]);
         return $remain_length >= 0 ? $remain_length : 0;
     }
-
     return 0;
 }
 
@@ -193,7 +186,8 @@ function http_end($content)
     // 没有Content-Type默认给个
     if(!isset(HttpCache::$header['Content-Type']))
     {
-        $header .= "Content-Type: text/html;charset=utf-8\r\n";
+        $header .= "Content-Type: application/json\r\n";
+        // $header .= "Content-Type: text/html;charset=utf-8\r\n";
     }
 
     // 其它header
