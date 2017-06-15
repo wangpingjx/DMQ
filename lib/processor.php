@@ -18,10 +18,9 @@ class Processor {
     # 处理任务
     public function processOne() {
         $item = $this->fetch();
-        if ($item) {
-            $this->process(json_decode($item, true));
-        } else {
-            echo 'fetch nothing....'.PHP_EOL;
+        if (!empty($item)) {
+            $job = json_decode($item[1], true);
+            $this->process($job);
         }
     }
     # 拉取任务
@@ -39,9 +38,10 @@ class Processor {
         }
     }
     # 执行任务
-    public function process($item) {
+    public function process($job) {
         try {
-            var_dump($item);
+            var_dump('----in process----');
+            var_dump($job);
         } catch (Expception $e) {
             echo 'caught exception in function process :(';
         }

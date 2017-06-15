@@ -40,8 +40,8 @@ class Poller {
 
     # 取出到达计划执行时间的任务，将它们加入工作队列，暂时不考虑重试队列
     public function enqueue_jobs() {
-        echo "enqueue jobs...\n";
-        while($job = $this->objClient->zrangebyscore() && !empty($job)) {
+        $job = $this->objClient->zrangebyscore();
+        if(!empty($job)) {
             # 将它从集合中删除，并加入工作队列
             if($this->objClient->zrem($job)) {
                 $this->objClient->enqueue_to_queue($job);

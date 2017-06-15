@@ -15,7 +15,7 @@ function http_input($http_string) {
     }
 
     // POST 请求还要读包体
-    if(false !== strpos($http_string, "POST")) {
+    if(false !== strpos($http_string, "POST") || false !== strpos($http_string, "DELETE")) {
         // 找Content-Length
         $match = array();
         if(preg_match("/\r\nContent-Length: ?(\d*)\r\n/", $http_string, $match)) {
@@ -75,7 +75,7 @@ function http_start($http_string, $SERVER = array())
 
     list($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI'], $_SERVER['SERVER_PROTOCOL']) = explode(' ', $header_data[0]);
     // 需要解析$_POST
-    if($_SERVER['REQUEST_METHOD'] == 'POST')
+    if($_SERVER['REQUEST_METHOD'] == 'POST' || $_SERVER['REQUEST_METHOD'] == 'DELETE')
     {
         $tmp = explode("\r\n\r\n", $http_string, 2);
         parse_str($tmp[1], $_POST);

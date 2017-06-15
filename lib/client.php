@@ -41,14 +41,14 @@ class Client {
     }
     #----- 将任务压入待执行队列 -----#
     public function lpush($queuename, $job) {
-        $this->objRedis->lpush($queuename, $job);
+        return $this->objRedis->lpush($queuename, $job);
     }
     public function enqueue_to_queue($job) {
-        $this->lpush(self::QUEUE_KEY, $job);
+        return $this->lpush(self::QUEUE_KEY, $job);
     }
     # 阻塞式拉取需要处理的任务
     public function brpop() {
-        $this->objRedis->brpop(self::QUEUE_KEY, 1);
+        return $this->objRedis->brpop(self::QUEUE_KEY, 1);
     }
 }
 ?>

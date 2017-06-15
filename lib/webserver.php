@@ -206,7 +206,7 @@ require_once DMQ_ROOT_DIR . 'lib/client.php';
             return false;
         }
         $objClient = new DMQ\Lib\Client();
-        $objClient->zadd($request['name'], $data);
+        $objClient->zadd($name, $data);
         return true;
     }
 
@@ -216,10 +216,17 @@ require_once DMQ_ROOT_DIR . 'lib/client.php';
         if (empty($name)) {
             return false;
         }
-        return $objClient->zrange($request['name']);
+        return $objClient->zrange($name);
     }
 
     public function delete($request) {
-        return $request;
+        // $name = $request['name'];
+        // $data = $request['data'];
+        // if (empty($name) || empty($data)) {
+        //     return false;
+        // }
+        // $objClient = new DMQ\Lib\Client();
+        // $objClient->zrem($name, $data);
+        return true;
     }
 }
