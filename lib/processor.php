@@ -37,11 +37,21 @@ class Processor {
             sleep(1);
         }
     }
-    # 执行任务
+    # 执行任务 这里太low了
     public function process($job) {
         try {
-            var_dump('----in process----');
-            var_dump($job);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $job['url']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            $ret = curl_exec($ch);
+            $retcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($retcode) {
+                echo "job ".json_encode($job)." has done.";
+            } else {
+                echo "something was wrong!";
+            }
         } catch (Expception $e) {
             echo 'caught exception in function process :(';
         }

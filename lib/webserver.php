@@ -50,6 +50,7 @@ require_once DMQ_ROOT_DIR . 'lib/client.php';
          ['POST',    '/',     'create'],
          ['GET',     '/',     'show'],
          ['DELETE',  '/',     'delete'],
+         ['GET',     '/echo', 'echo'],
      ];
 
      /**
@@ -228,5 +229,9 @@ require_once DMQ_ROOT_DIR . 'lib/client.php';
         // $objClient = new DMQ\Lib\Client();
         // $objClient->zrem($name, $data);
         return true;
+    }
+
+    public function echo($request) {
+        return $request;
     }
 }
